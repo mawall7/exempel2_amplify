@@ -1,3 +1,8 @@
+import { fetchAuthSession } from 'aws-amplify/auth';
+import { IoTDataPlaneClient, UpdateThingShadowCommand } from '@aws-sdk/client-iot-data-plane';
+
+
+
 import { useEffect, useState } from "react";
 import type { Schema } from "../amplify/data/resource";
 import { generateClient } from "aws-amplify/data";
@@ -56,6 +61,9 @@ function App() {
   const [telemetries, setTelemetry] = useState<Array<Schema["Telemetry"]["type"]>>([]);
   const [_currentTime, setCurrentTime] = useState(Date.now());
 
+  const [setTemp, setSetTemp] = useState<number>(22);
+
+
   useEffect(() => {
     const filter = selectedOption && selectedOption !== "all"
       ? { filter: { device_id: { eq: selectedOption } } }
@@ -99,6 +107,41 @@ function App() {
     client.models.Devices.delete({ device_id })
   }
 
+  //
+  async function updateShadowSetTemp(newTemp: number) {
+  setSetTemp(newTemp);
+  const thingName = selectedOption && selectedOption !== "all" ? selectedOption : "E8F60AC06420";
+
+  try {
+    const session = await fetchAuthSession();
+    const client = new IoTDataPlaneClient({
+      region: "eu-north-1",
+      endpoint: "https://amazonaws.com",
+      credentials: session.credentials,
+    });
+
+    const payload = JSON.stringify({
+      state: {
+        desired: {
+          setTemperature: newTemp,
+        },
+      },
+    });
+
+    await client.send(
+      new UpdateThingShadowCommand({
+        thingName: thingName,
+        payload: new TextEncoder().encode(payload),
+      })
+    );
+    console.log("Shadow updated to:", newTemp);
+  } catch (err) {
+    console.error("Failed to update shadow:", err);
+  }
+}
+
+  //
+
   const chartOptions = {
 
     onClick: function (evt: any, element: string | any[]) {
@@ -128,20 +171,20 @@ function App() {
         position: 'left' as const,
         ticks: {
           callback: function (value: any) {
-            return value + ' °C';
-          }
-        }
-      },
-      y1: {
-        type: 'linear' as const,
-        display: true,
-        position: 'right' as const,
-        ticks: {
-          callback: function (value: any) {
-            return value + ' %';
+            return Number(value).toFixed(2) + ' °C';
           }
         }
       }
+      // y1: {
+      //   type: 'linear' as const,
+      //   display: true,
+      //   position: 'right' as const,
+      //   ticks: {
+      //     callback: function (value: any) {
+      //       return value + ' %';
+      //     }
+      //   }
+      // }
     },
   };
 
@@ -161,16 +204,24 @@ function App() {
         backgroundColor: 'rgba(255, 99, 132, 0.5)',
         yAxisID: 'y',
       },
-      {
-        label: 'Humidity',
-        data: telemetries.map((data) => {
-          return data?.humidity;
-        }),
-        tension: 0.4,
-        borderColor: 'rgb(99, 255, 132)',
-        backgroundColor: 'rgba(99, 255, 132, 0.5)',
-        yAxisID: 'y1',
-      }
+       {
+      label: 'Set Temperature (Target)',
+      data: telemetries.map(() => setTemp),
+      borderColor: 'rgb(54, 162, 235)',
+      borderDash: Array(5, 5),
+      pointRadius: 0,
+      yAxisID: 'y',
+    }
+      // {
+      //   label: 'Humidity',
+      //   data: telemetries.map((data) => {
+      //     return data?.humidity;
+      //   }),
+      //   tension: 0.4,
+      //   borderColor: 'rgb(99, 255, 132)',
+      //   backgroundColor: 'rgba(99, 255, 132, 0.5)',
+      //   yAxisID: 'y1',
+      // }
     ],
   };
 
@@ -262,6 +313,20 @@ function App() {
         )}
       </Collection>
 
+   <Divider padding="xs" />
+  <Flex alignItems="flex-end">
+  <TextField
+    label="Change prefered SetTemperature for thermostat(°C)"
+    type="number"
+    step="0.1"
+    value={String(setTemp)}
+    onChange={(e) => setSetTemp(Number(e.target.value))}
+  />
+  <Button variation="primary" onClick={() => updateShadowSetTemp(setTemp)}>
+    Update Shadow
+  </Button>
+</Flex>
+
       <Divider padding="xs" />
       <SelectField
         label="Telemetry"
@@ -276,6 +341,13 @@ function App() {
       </SelectField>
 
       <View padding="xs"></View>
+
+       {/* <TextField
+        label="Set Temperature (°C)"
+        type="number"
+        value={String(setTemp)}
+        onChange={(e) => setSetTemp(Number(e.target.value))}
+      /> */}
 
       <Line options={chartOptions} data={cartData}></Line>
 
