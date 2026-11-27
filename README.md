@@ -1,4 +1,6 @@
-Obs! Projektet Är till för att visualisera temperaturdata från ESP32 -> i repository : IoT-aws-uppkopplad-termostat 
+Obs! Projektet Är till för att visualisera temperaturdata från ESP32 -> i repository : IoT-aws-uppkopplad-termostat
+
+: https://github.com/mawall7/IoT-aws-uppkopplad-termostat
 
 
 ## AWS Amplify React+Vite Starter Template
